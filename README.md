@@ -16,6 +16,8 @@ Hola is a work-in-progress. The following features are currently supported:
 To search for services, create a `Query` specifying the type of service you're looking for and the domain to search. You can execute a blocking search with the `runOnce()` method; this will return a list of `Instance` objects representing the discovered instances. As an example, the following code  will search for TiVo devices on the user's local network:
 
     public class TivoFinder {
+        final static Logger logger = LoggerFactory.getLogger(TivoFinder.class);
+
         public static void main(String[] args) {
             try {
                 Service service = Service.fromName("_tivo-mindrpc._tcp");
@@ -23,9 +25,9 @@ To search for services, create a `Query` specifying the type of service you're l
                 List<Instance> instances = query.runOnce();
                 instances.stream().forEach(System.out::println);
             } catch (UnknownHostException e) {
-                System.err.println("Unknown host: " + e);
+                logger.error("Unknown host: ", e);
             } catch (IOException e) {
-                System.err.println("IO error: " + e);
+                logger.error("IO error: ", e);
             }
         }
     }
@@ -44,3 +46,7 @@ An asynchronous `run()` method is planned for performing a continuous service di
 # Requirements
 
 Hola requires Java 8 or higher. It handles logging via SLF4J, so the slf4j-api.jar must also be in your Hola-enabled project's class path.
+
+# License
+
+Hola is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
