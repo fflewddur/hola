@@ -37,6 +37,10 @@ class PtrRecord extends Record {
         userVisibleName = buildUserVisibleName();
     }
 
+    public String getPtrName() {
+        return ptrName;
+    }
+
     public String getUserVisibleName() {
         return userVisibleName;
     }

@@ -19,6 +19,9 @@
 
 package net.straylightlabs.hola.dns;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.UnsupportedEncodingException;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
@@ -31,6 +34,8 @@ abstract class Record {
     protected final long ttl;
 
     protected final Class recordClass;
+
+    private final static Logger logger = LoggerFactory.getLogger(Record.class);
 
     public final static int USHORT_MASK = 0xFFFF;
     public final static long UINT_MASK = 0xFFFFFFFFL;

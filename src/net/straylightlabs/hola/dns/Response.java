@@ -100,7 +100,7 @@ public class Response extends Message {
         if (record.isPresent()) {
             return record.get().getUserVisibleName();
         } else {
-            throw new IllegalStateException("Cannot call getName when no PTR record is available");
+            throw new IllegalStateException("Cannot call getUserVisibleName when no PTR record is available");
         }
     }
 
@@ -130,6 +130,72 @@ public class Response extends Message {
         } else {
             return Collections.emptyMap();
         }
+    }
+
+    /**
+     * Returns true if this response has at least one A or AAAA record.
+     */
+    public boolean hasInetAddresses() {
+        long count = 0;
+        count += records.stream().filter(r -> r instanceof ARecord).count();
+        count += records.stream().filter(r -> r instanceof AaaaRecord).count();
+        return count > 0;
+    }
+
+    /**
+     * Returns true if this response has at least one SRV record.
+     */
+    public boolean hasSrvRecords() {
+        long count = 0;
+        count += records.stream().filter(r -> r instanceof SrvRecord).count();
+        return count > 0;
+    }
+
+    /**
+     * Returns true if this response has at least one TXT record.
+     */
+    public boolean hasTxtRecords() {
+        long count = 0;
+        count += records.stream().filter(r -> r instanceof TxtRecord).count();
+        return count > 0;
+    }
+
+    /**
+     * Returns the PTR name associated with this response.
+     */
+    public String getPtr() {
+        Optional<PtrRecord> record = records.stream().filter(r -> r instanceof PtrRecord).map(r -> (PtrRecord) r).findAny();
+        if (record.isPresent()) {
+            return record.get().getPtrName();
+        } else {
+            throw new IllegalStateException("Cannot call getPtr when no PTR record is available");
+        }
+    }
+
+    /**
+     * Returns true if this response answer the given question, false otherwise.
+     */
+    public boolean answersOneOf(Map<Question, Response> questionResponseMap) {
+        boolean foundQuestion = false;
+        // FIXME change this to search the response records for name's that match our questions
+        for (Question q : questions) {
+            if (questionResponseMap.containsKey(q)) {
+                foundQuestion = true;
+            }
+        }
+        return foundQuestion;
+    }
+
+    @Override
+    public String toString() {
+        return "Response{" +
+                "questions=" + questions +
+                ", records=" + records +
+                ", numQuestions=" + numQuestions +
+                ", numAnswers=" + numAnswers +
+                ", numNameServers=" + numNameServers +
+                ", numAdditionalRecords=" + numAdditionalRecords +
+                '}';
     }
 
     // Package-private methods for unit tests

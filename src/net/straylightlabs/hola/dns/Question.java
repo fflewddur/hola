@@ -21,6 +21,8 @@ package net.straylightlabs.hola.dns;
 
 import net.straylightlabs.hola.sd.Query;
 import net.straylightlabs.hola.sd.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -30,10 +32,11 @@ import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 
 public class Question extends Message {
-    private final Service service;
-    private final Domain domain;
+    private final String qName;
     private final QType qType;
     private final QClass qClass;
+
+    private final static Logger logger = LoggerFactory.getLogger(Question.class);
 
     private final static short UNICAST_RESPONSE_BIT = (short) 0x8000;
 
@@ -44,18 +47,16 @@ public class Question extends Message {
         return new Question(name, type, qClass);
     }
 
-    private Question(String name, QType type, QClass qClass) {
+    public Question(String name, QType type, QClass qClass) {
         super();
-        this.service = Service.fromName(name);
-        this.domain = Domain.fromName(name);
+        this.qName = name;
         this.qType = type;
         this.qClass = qClass;
     }
 
     public Question(Service service, Domain domain) {
         super();
-        this.service = service;
-        this.domain = domain;
+        this.qName = service.getName() + "." + domain.getName();
         this.qType = QType.PTR;
         this.qClass = QClass.IN;
         build();
@@ -65,8 +66,9 @@ public class Question extends Message {
         buildHeader();
 
         // QNAME
-        service.getLabels().forEach(this::addLabelToBuffer);
-        domain.getLabels().forEach(this::addLabelToBuffer);
+        for (String label:qName.split("\\.")) {
+            addLabelToBuffer(label);
+        }
         addLabelToBuffer("");
 
         // QTYPE
@@ -94,23 +96,24 @@ public class Question extends Message {
     }
 
     public void askOn(MulticastSocket socket) throws IOException {
+        logger.debug("Asking question {}", this);
         try {
-            InetAddress group = InetAddress.getByName(Query.MDNS_IP4_ADDRESS);
-            DatagramPacket packet = new DatagramPacket(buffer.array(), buffer.position(), group, Query.MDNS_PORT);
-            packet.setAddress(group);
-            socket.send(packet);
+            InetAddress groupIPv4 = InetAddress.getByName(Query.MDNS_IP4_ADDRESS);
+            InetAddress groupIPv6 = InetAddress.getByName(Query.MDNS_IP6_ADDRESS);
+            askWithGroup(groupIPv4, socket);
+            askWithGroup(groupIPv6, socket);
         } catch (UnknownHostException e) {
             System.err.println("UnknownHostException " + e);
         }
     }
 
-    Service getService() {
-        return service;
+    private void askWithGroup(InetAddress group, MulticastSocket socket) throws IOException {
+        DatagramPacket packet = new DatagramPacket(buffer.array(), buffer.position(), group, Query.MDNS_PORT);
+        packet.setAddress(group);
+        socket.send(packet);
     }
 
-    Domain getDomain() {
-        return domain;
-    }
+    String getQName() { return qName;}
 
     QType getQType() {
         return qType;
@@ -123,14 +126,34 @@ public class Question extends Message {
     @Override
     public String toString() {
         return "Question{" +
-                "service=" + service +
-                ", domain=" + domain +
+                "qName=" + qName +
                 ", qType=" + qType +
                 ", qClass=" + qClass +
                 '}';
     }
 
-    enum QType {
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        Question question = (Question) o;
+
+        if (!qName.equals(question.qName)) return false;
+        if (qType != question.qType) return false;
+        return qClass == question.qClass;
+
+    }
+
+    @Override
+    public int hashCode() {
+        int result = qName.hashCode();
+        result = 31 * result + qType.hashCode();
+        result = 31 * result + qClass.hashCode();
+        return result;
+    }
+
+    public enum QType {
         A(1),
         NS(2),
         CNAME(5),
@@ -145,6 +168,7 @@ public class Question extends Message {
         MINFO(14),
         MX(15),
         TXT(16),
+        SRV(33),
         ANY(255);
 
         private final int value;
@@ -167,7 +191,7 @@ public class Question extends Message {
         }
     }
 
-    enum QClass {
+    public enum QClass {
         IN(1),
         ANY(255);
 
