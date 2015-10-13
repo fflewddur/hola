@@ -20,6 +20,9 @@
 package net.straylightlabs.hola.dns;
 
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.util.*;
@@ -32,6 +35,8 @@ public class Response extends Message {
     private int numAnswers;
     private int numNameServers;
     private int numAdditionalRecords;
+
+    private final static Logger logger = LoggerFactory.getLogger(Response.class);
 
     private final static int QR_MASK = 0x8000;
     private final static int OPCODE_MASK = 0x7800;
@@ -100,6 +105,7 @@ public class Response extends Message {
         if (record.isPresent()) {
             return record.get().getUserVisibleName();
         } else {
+            logger.debug("No PTR records: {}", records);
             throw new IllegalStateException("Cannot call getUserVisibleName when no PTR record is available");
         }
     }
@@ -109,6 +115,7 @@ public class Response extends Message {
         addresses.addAll(records.stream().filter(r -> r instanceof ARecord).map(r -> ((ARecord) r).getAddress()).collect(Collectors.toList()));
         addresses.addAll(records.stream().filter(r -> r instanceof AaaaRecord).map(r -> ((AaaaRecord) r).getAddress()).collect(Collectors.toList()));
         if (addresses.size() == 0) {
+            logger.debug("No A/AAAA records: {}", records);
             throw new IllegalStateException("Cannot call getInetAddresses when no address records are available");
         }
         return addresses;
@@ -119,6 +126,7 @@ public class Response extends Message {
         if (record.isPresent()) {
             return record.get().getPort();
         } else {
+            logger.debug("No SRV records: {}", records);
             throw new IllegalStateException("Cannot cal getPort when no SRV record is available");
         }
     }
@@ -130,6 +138,13 @@ public class Response extends Message {
         } else {
             return Collections.emptyMap();
         }
+    }
+
+    /**
+     * Returns true if this response contains at least one A/AAAA record, SRV record, and TXT record.
+     */
+    public boolean isComplete() {
+        return (hasInetAddresses() && hasSrvRecords() && hasTxtRecords());
     }
 
     /**
@@ -168,22 +183,32 @@ public class Response extends Message {
         if (record.isPresent()) {
             return record.get().getPtrName();
         } else {
+            logger.debug("No PTR records: {}", records);
             throw new IllegalStateException("Cannot call getPtr when no PTR record is available");
         }
     }
 
     /**
-     * Returns true if this response answer the given question, false otherwise.
+     * Returns true if this response contains records for the given instance, false otherwise.
      */
-    public boolean answersOneOf(Map<Question, Response> questionResponseMap) {
-        boolean foundQuestion = false;
-        // FIXME change this to search the response records for name's that match our questions
-        for (Question q : questions) {
-            if (questionResponseMap.containsKey(q)) {
-                foundQuestion = true;
+    public boolean containsRecordsFor(String instance) {
+        boolean containsRecordsForInstance = false;
+        for (Record record : records) {
+            if (instance.equals(record.getName())) {
+                containsRecordsForInstance = true;
             }
         }
-        return foundQuestion;
+        return containsRecordsForInstance;
+    }
+
+    /**
+     * Combines records from @other with this response.
+     */
+    public Response mergeWith(Response other) {
+        if (other != null) {
+            this.records.addAll(other.records);
+        }
+        return this;
     }
 
     @Override

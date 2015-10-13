@@ -52,6 +52,7 @@ public class Question extends Message {
         this.qName = name;
         this.qType = type;
         this.qClass = qClass;
+        build();
     }
 
     public Question(Service service, Domain domain) {
@@ -66,7 +67,7 @@ public class Question extends Message {
         buildHeader();
 
         // QNAME
-        for (String label:qName.split("\\.")) {
+        for (String label : qName.split("\\.")) {
             addLabelToBuffer(label);
         }
         addLabelToBuffer("");
@@ -113,7 +114,9 @@ public class Question extends Message {
         socket.send(packet);
     }
 
-    String getQName() { return qName;}
+    String getQName() {
+        return qName;
+    }
 
     QType getQType() {
         return qType;
@@ -139,10 +142,7 @@ public class Question extends Message {
 
         Question question = (Question) o;
 
-        if (!qName.equals(question.qName)) return false;
-        if (qType != question.qType) return false;
-        return qClass == question.qClass;
-
+        return qName.equals(question.qName) && qType == question.qType && qClass == question.qClass;
     }
 
     @Override

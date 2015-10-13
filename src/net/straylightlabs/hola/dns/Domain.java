@@ -28,7 +28,7 @@ public class Domain {
     private final String name;
     private final List<String> labels;
 
-    public static final Domain LOCAL = new Domain("local");
+    public static final Domain LOCAL = new Domain("local.");
 
     private static final Pattern DOMAIN_PATTERN = Pattern.compile("((.*)_(tcp|udp)\\.)?(.*?)\\.?");
 

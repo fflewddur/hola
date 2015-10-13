@@ -41,7 +41,7 @@ public class Query {
     private final Domain domain;
     private MulticastSocket socket;
     private List<Instance> instances;
-    private Map<Question,Response> questions;
+    private Map<String, Response> instanceResponseMap;
 
     private final static Logger logger = LoggerFactory.getLogger(Query.class);
 
@@ -52,12 +52,13 @@ public class Query {
     /**
      * The browsing socket will timeout after this many milliseconds
      */
-    private static final int BROWSING_TIMEOUT = 500;
+    private static final int BROWSING_TIMEOUT = 750;
 
     /**
      * Create a Query for the given Service and Domain.
+     *
      * @param service service to search for
-     * @param domain domain to search on
+     * @param domain  domain to search on
      * @return a new Query object
      */
     public static Query createFor(Service service, Domain domain) {
@@ -67,11 +68,12 @@ public class Query {
     private Query(Service service, Domain domain) {
         this.service = service;
         this.domain = domain;
-        questions = new HashMap<>();
+        this.instanceResponseMap = new HashMap<>();
     }
 
     /**
      * Synchronously runs the Query a single time.
+     *
      * @return a list of Instances that match this Query
      * @throws IOException
      */
@@ -80,7 +82,6 @@ public class Query {
         instances = new ArrayList<>();
         try {
             openSocket();
-            questions.put(question, null);
             question.askOn(socket);
             collectResponses();
         } finally {
@@ -103,53 +104,70 @@ public class Query {
     }
 
     private List<Instance> collectResponses() throws IOException {
-
         for (int timeouts = 0; timeouts == 0; ) {
             byte[] responseBuffer = new byte[Message.MAX_LENGTH];
             DatagramPacket responsePacket = new DatagramPacket(responseBuffer, responseBuffer.length);
             try {
-                logger.debug("Listening for response...");
                 socket.receive(responsePacket);
                 Response response = Response.createFrom(responsePacket);
-//                if (response.answersOneOf(questions)) {
-                    parseResponse(response);
-//                } else {
-//                    logger.debug("Received a response, but it doesn't answer any of our questions: {}", response);
-//                }
-
+                if (response.isComplete()) {
+                    instances.add(Instance.createFrom(response));
+                } else {
+                    boolean foundRecords = false;
+                    for (String name : instanceResponseMap.keySet()) {
+                        if (response.containsRecordsFor(name)) {
+                            instanceResponseMap.put(name, response.mergeWith(instanceResponseMap.get(name)));
+                            foundRecords = true;
+                        }
+                    }
+                    if (!foundRecords) {
+                        fetchMissingRecords(response);
+                    } else if (response.isComplete()) {
+                        instances.add(Instance.createFrom(response));
+                    }
+                }
                 timeouts = 0;
             } catch (SocketTimeoutException e) {
                 timeouts++;
             }
         }
+
         return instances;
     }
 
-    private void parseResponse(Response response) throws IOException {
+    private void fetchMissingRecords(Response response) throws IOException {
+        instanceResponseMap.put(response.getPtr(), response);
         if (!response.hasSrvRecords()) {
             logger.debug("Response has no SRV records: {}", response);
             queryForSrvRecord(response);
-        } else if (!response.hasTxtRecords()) {
+        }
+        if (!response.hasTxtRecords()) {
             logger.debug("Response has no TXT records: {}", response);
-        } else if (!response.hasInetAddresses()) {
+            queryForTxtRecord(response);
+        }
+        if (!response.hasInetAddresses()) {
             logger.debug("Response has no A or AAAA records: {}", response);
             queryForAddresses(response);
-        } else {
-            logger.debug("Response = {}", response);
-            instances.add(Instance.createFrom(response));
         }
     }
 
     private void queryForSrvRecord(Response response) throws IOException {
-        Question aQuestion = new Question(response.getPtr(), Question.QType.SRV, Question.QClass.IN);
-        logger.debug("asking '{}'", aQuestion);
-        aQuestion.askOn(socket);
+        Question question = new Question(response.getPtr(), Question.QType.SRV, Question.QClass.IN);
+        ask(question);
+    }
+
+    private void queryForTxtRecord(Response response) throws IOException {
+        Question question = new Question(response.getPtr(), Question.QType.TXT, Question.QClass.IN);
+        ask(question);
     }
 
     private void queryForAddresses(Response response) throws IOException {
-        Question aQuestion = new Question(response.getPtr(), Question.QType.A, Question.QClass.IN);
-        logger.debug("asking '{}'", aQuestion);
-        aQuestion.askOn(socket);
+        Question question = new Question(response.getPtr(), Question.QType.A, Question.QClass.IN);
+        ask(question);
+    }
+
+    private void ask(Question question) throws IOException {
+        question.askOn(socket);
     }
 
     private void closeSocket() {

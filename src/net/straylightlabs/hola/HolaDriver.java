@@ -41,6 +41,7 @@ public class HolaDriver {
         try {
             Service service = Service.fromName("_tivo-mindrpc._tcp");
 //            Service service = Service.fromName("_appletv-v2._tcp");
+//            Service service = Service.fromName("_airport._tcp");
             Query query = Query.createFor(service, Domain.LOCAL);
             List<Instance> instances = query.runOnce();
             instances.stream().forEach(System.out::println);
