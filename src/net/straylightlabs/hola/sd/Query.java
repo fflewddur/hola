@@ -25,7 +25,6 @@ import net.straylightlabs.hola.dns.Question;
 import net.straylightlabs.hola.dns.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -94,7 +93,7 @@ public class Query {
      * Asynchronously runs the Query in a new thread.
      */
     public void start() {
-        throw new NotImplementedException();
+        throw new RuntimeException("Not implemented yet");
     }
 
     private void openSocket() throws IOException {
