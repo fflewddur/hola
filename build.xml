@@ -3,6 +3,7 @@
 
 
     <property file="build.properties"/>
+
     <!-- Uncomment the following property if no tests compilation is needed -->
     <!--
     <property name="skip.tests" value="true"/>
@@ -125,6 +126,7 @@
 
     <property name="hola.output.dir" value="${module.hola.basedir}/out/production/Hola"/>
     <property name="hola.testoutput.dir" value="${module.hola.basedir}/out/test/Hola"/>
+    <property name="hola.junit.out.dir.xml"  value="${module.hola.basedir}/out/report/junit/xml"/>
 
     <path id="hola.module.bootclasspath">
         <!-- Paths to be included in compilation bootclasspath -->
@@ -266,6 +268,20 @@
 
         <!-- Delete temporary files -->
         <delete dir="${artifacts.temp.dir}"/>
+    </target>
+
+    <target name="test" depends="build.modules">
+        <delete dir="${hola.junit.out.dir.xml}"/>
+        <mkdir  dir="${hola.junit.out.dir.xml}"/>
+        <junit showoutput="true" printsummary="yes" fork="yes">
+            <formatter type="xml"/>
+            <classpath refid="hola.runtime.module.classpath"/>
+            <batchtest todir="${hola.junit.out.dir.xml}">
+                <fileset dir="${hola.testoutput.dir}">
+                    <include name="**/TestSuite.class"/>
+                </fileset>
+            </batchtest>
+        </junit>
     </target>
 
     <target name="all" depends="build.modules, build.all.artifacts" description="build all"/>
