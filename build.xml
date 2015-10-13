@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project name="hola" default="all">
+    <property name="hola.version" value="0.1.2"/>
 
     <property file="build.properties"/>
 
@@ -85,7 +86,7 @@
 
     <property name="hola.output.dir" value="${module.hola.basedir}/out/production/Hola"/>
     <property name="hola.testoutput.dir" value="${module.hola.basedir}/out/test/Hola"/>
-    <property name="hola.junit.out.dir.xml" value="${module.hola.basedir}/out/report/junit/xml"/>
+    <property name="hola.junit.report.dir" value="${module.hola.basedir}/out/report"/>
 
     <path id="hola.module.bootclasspath">
         <!-- Paths to be included in compilation bootclasspath -->
@@ -186,19 +187,21 @@
     <target name="clean.module.hola" description="cleanup module">
         <delete dir="${hola.output.dir}"/>
         <delete dir="${hola.testoutput.dir}"/>
+
     </target>
 
     <target name="init" description="Build initialization">
         <!-- Perform any build initialization in this target -->
     </target>
 
-    <target name="clean" depends="clean.module.hola" description="cleanup all"/>
+    <target name="clean" depends="clean.module.hola, clean.tests" description="cleanup all"/>
 
     <target name="build.modules" depends="init, clean, compile.module.hola" description="build all modules"/>
 
     <target name="init.artifacts">
         <property name="artifacts.temp.dir" value="${basedir}/__artifacts_temp"/>
         <property name="artifact.output.hola:jar" value="${basedir}/out/artifacts"/>
+        <delete dir="${artifact.output.hola:jar}"/>
         <mkdir dir="${artifacts.temp.dir}"/>
         <property name="temp.jar.path.hola.jar" value="${artifacts.temp.dir}/hola.jar"/>
     </target>
@@ -210,7 +213,7 @@
         <jar destfile="${temp.jar.path.hola.jar}" duplicate="preserve" filesetmanifest="mergewithoutmain">
             <zipfileset dir="${hola.output.dir}"/>
         </jar>
-        <copy file="${temp.jar.path.hola.jar}" tofile="${artifact.temp.output.hola:jar}/hola.jar"/>
+        <copy file="${temp.jar.path.hola.jar}" tofile="${artifact.temp.output.hola:jar}/hola-${hola.version}.jar"/>
     </target>
 
     <target name="build.all.artifacts" depends="artifact.hola:jar" description="Build all artifacts">
@@ -224,17 +227,21 @@
     </target>
 
     <target name="test" depends="build.modules">
-        <delete dir="${hola.junit.out.dir.xml}"/>
-        <mkdir dir="${hola.junit.out.dir.xml}"/>
+        <delete dir="${hola.junit.report.dir}"/>
+        <mkdir dir="${hola.junit.report.dir}"/>
         <junit showoutput="true" printsummary="yes" fork="yes">
             <formatter type="xml"/>
             <classpath refid="hola.runtime.module.classpath"/>
-            <batchtest todir="${hola.junit.out.dir.xml}">
+            <batchtest todir="${hola.junit.report.dir}">
                 <fileset dir="${hola.testoutput.dir}">
                     <include name="**/TestSuite.class"/>
                 </fileset>
             </batchtest>
         </junit>
+    </target>
+
+    <target name="clean.tests">
+        <delete dir="${hola.junit.report.dir}"/>
     </target>
 
     <target name="all" depends="build.modules, build.all.artifacts" description="build all"/>
