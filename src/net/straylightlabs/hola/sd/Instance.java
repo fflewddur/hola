@@ -111,6 +111,7 @@ public class Instance {
                 "name='" + name + '\'' +
                 ", addresses=" + addresses +
                 ", port=" + port +
+                ", attributes=" + attributes +
                 '}';
     }
 }
