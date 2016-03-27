@@ -38,6 +38,8 @@ import java.util.Map;
 public class Query {
     private final Service service;
     private final Domain domain;
+    private final int browsingTimeout;
+
     private MulticastSocket socket;
     private List<Instance> instances;
     private Map<String, Response> instanceResponseMap;
@@ -61,12 +63,17 @@ public class Query {
      * @return a new Query object
      */
     public static Query createFor(Service service, Domain domain) {
-        return new Query(service, domain);
+        return new Query(service, domain, BROWSING_TIMEOUT);
     }
 
-    private Query(Service service, Domain domain) {
+    public static Query createWithTimeout(Service service, Domain domain, int timeout) {
+        return new Query(service, domain, timeout);
+    }
+
+    private Query(Service service, Domain domain, int browsingTimeout) {
         this.service = service;
         this.domain = domain;
+        this.browsingTimeout = browsingTimeout;
         this.instanceResponseMap = new HashMap<>();
     }
 
@@ -99,7 +106,7 @@ public class Query {
     private void openSocket() throws IOException {
         socket = new MulticastSocket();
         socket.setReuseAddress(true);
-        socket.setSoTimeout(BROWSING_TIMEOUT);
+        socket.setSoTimeout(browsingTimeout);
     }
 
     private List<Instance> collectResponses() throws IOException {
