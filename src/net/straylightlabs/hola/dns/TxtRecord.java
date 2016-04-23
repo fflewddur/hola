@@ -19,6 +19,9 @@
 
 package net.straylightlabs.hola.dns;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.HashMap;
@@ -27,6 +30,9 @@ import java.util.Map;
 
 public class TxtRecord extends Record {
     private Map<String, String> attributes;
+
+    @SuppressWarnings("unused")
+    private final static Logger logger = LoggerFactory.getLogger(TxtRecord.class);
 
     public TxtRecord(ByteBuffer buffer, String name, Record.Class recordClass, long ttl, int length) {
         super(name, recordClass, ttl);
@@ -38,7 +44,9 @@ public class TxtRecord extends Record {
         Map<String, String> pairs = new HashMap<>();
         strings.stream().forEach(s -> {
             String[] parts = s.split("=");
-            pairs.put(parts[0], parts[1]);
+            if (parts.length > 1) {
+                pairs.put(parts[0], parts[1]);
+            }
         });
         return pairs;
     }

@@ -76,8 +76,9 @@ public class Question extends Message {
         buffer.putShort((short) qType.asUnsignedShort());
 
         // QCLASS
-        // FIXME Only set unicast bit for initial queries
-        buffer.putShort((short) (qClass.asUnsignedShort() | UNICAST_RESPONSE_BIT));
+        // TODO Figure out when to use to the unicast response bit
+//        buffer.putShort((short) (qClass.asUnsignedShort() | UNICAST_RESPONSE_BIT));
+        buffer.putShort((short) (qClass.asUnsignedShort()));
     }
 
     private void addLabelToBuffer(String label) {
@@ -96,13 +97,10 @@ public class Question extends Message {
         buffer.putInt(0x0); // no nameservers or additional records
     }
 
-    public void askOn(MulticastSocket socket) throws IOException {
+    public void askOn(MulticastSocket socket, InetAddress group) throws IOException {
         logger.debug("Asking question {}", this);
         try {
-            InetAddress groupIPv4 = InetAddress.getByName(Query.MDNS_IP4_ADDRESS);
-            InetAddress groupIPv6 = InetAddress.getByName(Query.MDNS_IP6_ADDRESS);
-            askWithGroup(groupIPv4, socket);
-            askWithGroup(groupIPv6, socket);
+            askWithGroup(group, socket);
         } catch (UnknownHostException e) {
             System.err.println("UnknownHostException " + e);
         }

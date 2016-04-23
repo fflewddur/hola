@@ -17,9 +17,17 @@
  * along with Hola.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package net.straylightlabs.hola;
+package net.straylightlabs.hola.dns;
 
-@SuppressWarnings("unused")
-public class Hola {
-    public final static String VERSION = "0.2.0";
+import java.nio.ByteBuffer;
+
+/**
+ * Handle records that we don't care about for mDNS-SD.
+ */
+public class UnknownRecord extends Record {
+    public UnknownRecord(ByteBuffer buffer, String name, Record.Class recordClass, long ttl, int length) {
+        super(name, recordClass, ttl);
+        byte[] toSkip = new byte[length];
+        buffer.get(toSkip);
+    }
 }

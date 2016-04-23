@@ -73,7 +73,8 @@ abstract class Record {
             case TXT:
                 return new TxtRecord(buffer, name, recordClass, ttl, rdLength);
             default:
-                throw new IllegalArgumentException("Buffer represents an unsupported record type");
+                logger.debug("Buffer represents an unsupported record type, skipping ahead {} bytes", rdLength);
+                return new UnknownRecord(buffer, name, recordClass, ttl, rdLength);
         }
     }
 
@@ -158,6 +159,7 @@ abstract class Record {
     }
 
     enum Type {
+        UNSUPPORTED(0),
         A(1),
         NS(2),
         CNAME(5),
@@ -180,7 +182,7 @@ abstract class Record {
                     return type;
                 }
             }
-            throw new IllegalArgumentException(String.format("Can't convert 0x%04x to a Type", val));
+            return UNSUPPORTED;
         }
 
         Type(int value) {

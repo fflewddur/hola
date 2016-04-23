@@ -98,6 +98,7 @@ public class Response extends Message {
         numAnswers = readUnsignedShort();
         numNameServers = readUnsignedShort();
         numAdditionalRecords = readUnsignedShort();
+        logger.debug("Questions={}, Answers={}, NameServers={}, AdditionalRecords={}", numQuestions, numAnswers, numNameServers, numAdditionalRecords);
     }
 
     public String getUserVisibleName() {

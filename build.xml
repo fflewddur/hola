@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project name="hola" default="all">
-    <property name="hola.version" value="0.1.3"/>
+    <property name="hola.version" value="0.2.0"/>
 
     <property file="build.properties"/>
 
@@ -62,12 +62,12 @@
     <!-- Project Libraries -->
 
     <path id="library.logback.classpath">
-        <pathelement location="${basedir}/lib/logback-classic-1.1.3.jar"/>
-        <pathelement location="${basedir}/lib/logback-core-1.1.3.jar"/>
+        <pathelement location="${basedir}/lib/logback-classic-1.1.7.jar"/>
+        <pathelement location="${basedir}/lib/logback-core-1.1.7.jar"/>
     </path>
 
     <path id="library.slf4j-api.classpath">
-        <pathelement location="${basedir}/lib/slf4j-api-1.7.12.jar"/>
+        <pathelement location="${basedir}/lib/slf4j-api-1.7.21.jar"/>
     </path>
 
     <path id="library.junit.classpath">

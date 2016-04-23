@@ -28,19 +28,20 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
+import java.net.InetAddress;
 import java.net.MulticastSocket;
 import java.net.SocketTimeoutException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class Query {
     private final Service service;
     private final Domain domain;
     private final int browsingTimeout;
 
-    private MulticastSocket socket;
+    private MulticastSocket socketIPv4;
+    private MulticastSocket socketIPv6;
+    private InetAddress mdnsGroupIPv4;
+    private InetAddress mdnsGroupIPv6;
     private List<Instance> instances;
     private Map<String, Response> instanceResponseMap;
 
@@ -62,10 +63,20 @@ public class Query {
      * @param domain  domain to search on
      * @return a new Query object
      */
+    @SuppressWarnings("unused")
     public static Query createFor(Service service, Domain domain) {
         return new Query(service, domain, BROWSING_TIMEOUT);
     }
 
+    /**
+     * Create a Query for the given Service and Domain.
+     *
+     * @param service service to search for
+     * @param domain  domain to search on
+     * @param timeout time in MS to wait for a response
+     * @return a new Query object
+     */
+    @SuppressWarnings("unused")
     public static Query createWithTimeout(Service service, Domain domain, int timeout) {
         return new Query(service, domain, timeout);
     }
@@ -74,7 +85,7 @@ public class Query {
         this.service = service;
         this.domain = domain;
         this.browsingTimeout = browsingTimeout;
-        this.instanceResponseMap = new HashMap<>();
+        this.instanceResponseMap = Collections.synchronizedMap(new HashMap<>());
     }
 
     /**
@@ -85,13 +96,21 @@ public class Query {
      */
     public List<Instance> runOnce() throws IOException {
         Question question = new Question(service, domain);
-        instances = new ArrayList<>();
+        instances = Collections.synchronizedList(new ArrayList<>());
         try {
-            openSocket();
-            question.askOn(socket);
-            collectResponses();
+            openSockets();
+            Thread ip4Listener = listenForIPv4Responses();
+            Thread ip6Listener = listenForIPv6Responses();
+            question.askOn(socketIPv4, mdnsGroupIPv4);
+            question.askOn(socketIPv6, mdnsGroupIPv6);
+            try {
+                ip4Listener.join();
+                ip6Listener.join();
+            } catch (InterruptedException e) {
+                logger.error("InterruptedException while listening for mDNS responses: ", e);
+            }
         } finally {
-            closeSocket();
+            closeSockets();
         }
         return instances;
     }
@@ -99,42 +118,81 @@ public class Query {
     /**
      * Asynchronously runs the Query in a new thread.
      */
+    @SuppressWarnings("unused")
     public void start() {
         throw new RuntimeException("Not implemented yet");
     }
 
-    private void openSocket() throws IOException {
-        socket = new MulticastSocket();
-        socket.setReuseAddress(true);
-        socket.setSoTimeout(browsingTimeout);
+    private void openSockets() throws IOException {
+        mdnsGroupIPv4 = InetAddress.getByName(MDNS_IP4_ADDRESS);
+        mdnsGroupIPv6 = InetAddress.getByName(MDNS_IP6_ADDRESS);
+        socketIPv4 = new MulticastSocket(MDNS_PORT);
+        socketIPv4.joinGroup(mdnsGroupIPv4);
+        socketIPv6 = new MulticastSocket();
+        socketIPv4.setTimeToLive(10);
+        socketIPv6.setTimeToLive(10);
+
+        socketIPv4.setReuseAddress(true);
+        socketIPv6.setReuseAddress(true);
+        socketIPv4.setSoTimeout(browsingTimeout);
+        socketIPv6.setSoTimeout(browsingTimeout);
     }
 
-    private List<Instance> collectResponses() throws IOException {
+    private Thread listenForIPv4Responses() {
+        Thread listener = new Thread(() -> {
+            collectResponsesOn(socketIPv4);
+        });
+
+        listener.start();
+        return listener;
+    }
+
+    private Thread listenForIPv6Responses() {
+        Thread listener = new Thread(() -> {
+            collectResponsesOn(socketIPv6);
+        });
+
+        listener.start();
+        return listener;
+    }
+
+    private List<Instance> collectResponsesOn(MulticastSocket socket) {
         for (int timeouts = 0; timeouts == 0; ) {
             byte[] responseBuffer = new byte[Message.MAX_LENGTH];
             DatagramPacket responsePacket = new DatagramPacket(responseBuffer, responseBuffer.length);
             try {
+                logger.debug("Listening for responses...");
                 socket.receive(responsePacket);
-                Response response = Response.createFrom(responsePacket);
-                if (response.isComplete()) {
-                    instances.add(Instance.createFrom(response));
-                } else {
-                    boolean foundRecords = false;
-                    for (String name : instanceResponseMap.keySet()) {
-                        if (response.containsRecordsFor(name)) {
-                            instanceResponseMap.put(name, response.mergeWith(instanceResponseMap.get(name)));
-                            foundRecords = true;
+                logger.debug("Response received!");
+//                logger.debug("Response of length {} at offset {}: {}", responsePacket.getLength(), responsePacket.getOffset(), responsePacket.getData());
+                try {
+                    Response response = Response.createFrom(responsePacket);
+                    if (response.isComplete()) {
+                        instances.add(Instance.createFrom(response));
+                    } else {
+                        boolean foundRecords = false;
+                        for (String name : instanceResponseMap.keySet()) {
+                            if (response.containsRecordsFor(name)) {
+                                instanceResponseMap.put(name, response.mergeWith(instanceResponseMap.get(name)));
+                                foundRecords = true;
+                            }
+                        }
+                        if (!foundRecords) {
+                            fetchMissingRecords(response);
+                        } else if (response.isComplete()) {
+                            instances.add(Instance.createFrom(response));
                         }
                     }
-                    if (!foundRecords) {
-                        fetchMissingRecords(response);
-                    } else if (response.isComplete()) {
-                        instances.add(Instance.createFrom(response));
-                    }
+                } catch (IllegalArgumentException e) {
+                    logger.debug("Response was not a mDNS response packet, ignoring it");
+                    timeouts = 0;
+                    continue;
                 }
                 timeouts = 0;
             } catch (SocketTimeoutException e) {
                 timeouts++;
+            } catch (IOException e) {
+                logger.error("IOException while listening for mDNS responses: ", e);
             }
         }
 
@@ -173,13 +231,18 @@ public class Query {
     }
 
     private void ask(Question question) throws IOException {
-        question.askOn(socket);
+        question.askOn(socketIPv4, mdnsGroupIPv4);
+        question.askOn(socketIPv6, mdnsGroupIPv6);
     }
 
-    private void closeSocket() {
-        if (socket != null) {
-            socket.close();
-            socket = null;
+    private void closeSockets() {
+        if (socketIPv4 != null) {
+            socketIPv4.close();
+            socketIPv4 = null;
+        }
+        if (socketIPv6 != null) {
+            socketIPv6.close();
+            socketIPv6 = null;
         }
     }
 }
