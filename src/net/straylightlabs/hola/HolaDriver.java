@@ -27,8 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.net.*;
-import java.util.List;
+import java.net.UnknownHostException;
 import java.util.Set;
 
 /**
@@ -46,6 +45,9 @@ public class HolaDriver {
             Query query = Query.createFor(service, Domain.LOCAL);
             Set<Instance> instances = query.runOnce();
             instances.stream().forEach(System.out::println);
+            if (instances.size() == 0) {
+                logger.error("No instances of type {} found :(", service);
+            }
         } catch (UnknownHostException e) {
             logger.error("Unknown host: ", e);
         } catch (IOException e) {

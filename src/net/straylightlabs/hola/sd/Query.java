@@ -27,10 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.net.DatagramPacket;
-import java.net.InetAddress;
-import java.net.MulticastSocket;
-import java.net.SocketTimeoutException;
+import java.net.*;
 import java.util.*;
 
 public class Query {
@@ -41,6 +38,8 @@ public class Query {
     private MulticastSocket socket;
     private InetAddress mdnsGroupIPv4;
     private InetAddress mdnsGroupIPv6;
+    private boolean isUsingIPv4;
+    private boolean isUsingIPv6;
     private Set<Instance> instances;
     private Map<String, Response> instanceResponseMap;
 
@@ -99,8 +98,7 @@ public class Query {
         try {
             openSocket();
             Thread listener = listenForResponses();
-            question.askOn(socket, mdnsGroupIPv4);
-            question.askOn(socket, mdnsGroupIPv6);
+            ask(question);
             try {
                 listener.join();
             } catch (InterruptedException e) {
@@ -124,22 +122,34 @@ public class Query {
         mdnsGroupIPv4 = InetAddress.getByName(MDNS_IP4_ADDRESS);
         mdnsGroupIPv6 = InetAddress.getByName(MDNS_IP6_ADDRESS);
         socket = new MulticastSocket(MDNS_PORT);
-        socket.joinGroup(mdnsGroupIPv4);
-        socket.joinGroup(mdnsGroupIPv6);
+        try {
+            socket.joinGroup(mdnsGroupIPv4);
+            isUsingIPv4 = true;
+        } catch (SocketException e) {
+            logger.error("SocketException when joining group for {}, IPv4-only hosts will not be found",
+                    MDNS_IP4_ADDRESS, e);
+        }
+        try {
+            socket.joinGroup(mdnsGroupIPv6);
+            isUsingIPv6 = true;
+        } catch (SocketException e) {
+            logger.error("SocketException when joining group fro {}, IPv6-only hosts will not be found",
+                    MDNS_IP6_ADDRESS, e);
+        }
+        if (!isUsingIPv4 && !isUsingIPv6) {
+            throw new IOException("No usable interfaces found");
+        }
         socket.setTimeToLive(10);
         socket.setSoTimeout(browsingTimeout);
     }
 
     private Thread listenForResponses() {
-        Thread listener = new Thread(() -> {
-            collectResponsesOn(socket);
-        });
-
+        Thread listener = new Thread(this::collectResponses);
         listener.start();
         return listener;
     }
 
-    private Set<Instance> collectResponsesOn(MulticastSocket socket) {
+    private Set<Instance> collectResponses() {
         for (int timeouts = 0; timeouts == 0; ) {
             byte[] responseBuffer = new byte[Message.MAX_LENGTH];
             DatagramPacket responsePacket = new DatagramPacket(responseBuffer, responseBuffer.length);
@@ -214,8 +224,12 @@ public class Query {
     }
 
     private void ask(Question question) throws IOException {
-        question.askOn(socket, mdnsGroupIPv4);
-        question.askOn(socket, mdnsGroupIPv6);
+        if (isUsingIPv4) {
+            question.askOn(socket, mdnsGroupIPv4);
+        }
+        if (isUsingIPv6) {
+            question.askOn(socket, mdnsGroupIPv6);
+        }
     }
 
     private void closeSocket() {
