@@ -29,6 +29,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.net.*;
 import java.util.List;
+import java.util.Set;
 
 /**
  * A minimal implementation of mDNS-SD, as described in RFCs 6762 & 6763.
@@ -43,7 +44,7 @@ public class HolaDriver {
 //            Service service = Service.fromName("_appletv-v2._tcp");
 //            Service service = Service.fromName("_airport._tcp");
             Query query = Query.createFor(service, Domain.LOCAL);
-            List<Instance> instances = query.runOnce();
+            Set<Instance> instances = query.runOnce();
             instances.stream().forEach(System.out::println);
         } catch (UnknownHostException e) {
             logger.error("Unknown host: ", e);

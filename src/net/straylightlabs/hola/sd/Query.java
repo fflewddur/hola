@@ -38,11 +38,10 @@ public class Query {
     private final Domain domain;
     private final int browsingTimeout;
 
-    private MulticastSocket socketIPv4;
-    private MulticastSocket socketIPv6;
+    private MulticastSocket socket;
     private InetAddress mdnsGroupIPv4;
     private InetAddress mdnsGroupIPv6;
-    private List<Instance> instances;
+    private Set<Instance> instances;
     private Map<String, Response> instanceResponseMap;
 
     private final static Logger logger = LoggerFactory.getLogger(Query.class);
@@ -94,23 +93,21 @@ public class Query {
      * @return a list of Instances that match this Query
      * @throws IOException
      */
-    public List<Instance> runOnce() throws IOException {
+    public Set<Instance> runOnce() throws IOException {
         Question question = new Question(service, domain);
-        instances = Collections.synchronizedList(new ArrayList<>());
+        instances = Collections.synchronizedSet(new HashSet<>());
         try {
-            openSockets();
-            Thread ip4Listener = listenForIPv4Responses();
-            Thread ip6Listener = listenForIPv6Responses();
-            question.askOn(socketIPv4, mdnsGroupIPv4);
-            question.askOn(socketIPv6, mdnsGroupIPv6);
+            openSocket();
+            Thread listener = listenForResponses();
+            question.askOn(socket, mdnsGroupIPv4);
+            question.askOn(socket, mdnsGroupIPv6);
             try {
-                ip4Listener.join();
-                ip6Listener.join();
+                listener.join();
             } catch (InterruptedException e) {
                 logger.error("InterruptedException while listening for mDNS responses: ", e);
             }
         } finally {
-            closeSockets();
+            closeSocket();
         }
         return instances;
     }
@@ -123,40 +120,26 @@ public class Query {
         throw new RuntimeException("Not implemented yet");
     }
 
-    private void openSockets() throws IOException {
+    private void openSocket() throws IOException {
         mdnsGroupIPv4 = InetAddress.getByName(MDNS_IP4_ADDRESS);
         mdnsGroupIPv6 = InetAddress.getByName(MDNS_IP6_ADDRESS);
-        socketIPv4 = new MulticastSocket(MDNS_PORT);
-        socketIPv4.joinGroup(mdnsGroupIPv4);
-        socketIPv6 = new MulticastSocket();
-        socketIPv4.setTimeToLive(10);
-        socketIPv6.setTimeToLive(10);
-
-        socketIPv4.setReuseAddress(true);
-        socketIPv6.setReuseAddress(true);
-        socketIPv4.setSoTimeout(browsingTimeout);
-        socketIPv6.setSoTimeout(browsingTimeout);
+        socket = new MulticastSocket(MDNS_PORT);
+        socket.joinGroup(mdnsGroupIPv4);
+        socket.joinGroup(mdnsGroupIPv6);
+        socket.setTimeToLive(10);
+        socket.setSoTimeout(browsingTimeout);
     }
 
-    private Thread listenForIPv4Responses() {
+    private Thread listenForResponses() {
         Thread listener = new Thread(() -> {
-            collectResponsesOn(socketIPv4);
+            collectResponsesOn(socket);
         });
 
         listener.start();
         return listener;
     }
 
-    private Thread listenForIPv6Responses() {
-        Thread listener = new Thread(() -> {
-            collectResponsesOn(socketIPv6);
-        });
-
-        listener.start();
-        return listener;
-    }
-
-    private List<Instance> collectResponsesOn(MulticastSocket socket) {
+    private Set<Instance> collectResponsesOn(MulticastSocket socket) {
         for (int timeouts = 0; timeouts == 0; ) {
             byte[] responseBuffer = new byte[Message.MAX_LENGTH];
             DatagramPacket responsePacket = new DatagramPacket(responseBuffer, responseBuffer.length);
@@ -231,18 +214,14 @@ public class Query {
     }
 
     private void ask(Question question) throws IOException {
-        question.askOn(socketIPv4, mdnsGroupIPv4);
-        question.askOn(socketIPv6, mdnsGroupIPv6);
+        question.askOn(socket, mdnsGroupIPv4);
+        question.askOn(socket, mdnsGroupIPv6);
     }
 
-    private void closeSockets() {
-        if (socketIPv4 != null) {
-            socketIPv4.close();
-            socketIPv4 = null;
-        }
-        if (socketIPv6 != null) {
-            socketIPv6.close();
-            socketIPv6 = null;
+    private void closeSocket() {
+        if (socket != null) {
+            socket.close();
+            socket = null;
         }
     }
 }

@@ -22,13 +22,11 @@ package net.straylightlabs.hola.sd;
 import net.straylightlabs.hola.dns.Response;
 
 import java.net.InetAddress;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class Instance {
     private final String name;
-    private final List<InetAddress> addresses;
+    private final Set<InetAddress> addresses;
     private final int port;
     private final Map<String, String> attributes;
 
@@ -43,7 +41,8 @@ public class Instance {
 
     private Instance(String name, List<InetAddress> addresses, int port, Map<String, String> attributes) {
         this.name = name;
-        this.addresses = addresses;
+        this.addresses = new HashSet<>();
+        this.addresses.addAll(addresses);
         this.port = port;
         this.attributes = attributes;
     }
@@ -55,19 +54,21 @@ public class Instance {
      *
      * @return name
      */
+    @SuppressWarnings("unused")
     public String getName() {
         return name;
     }
 
     /**
-     * Get the list of IP addresses associated with this instance.
+     * Get the set of IP addresses associated with this instance.
      *
      * These values come from the instance's A and AAAA records.
      *
-     * @return list of addresses
+     * @return set of addresses
      */
-    public List<InetAddress> getAddresses() {
-        return Collections.unmodifiableList(addresses);
+    @SuppressWarnings("unused")
+    public Set<InetAddress> getAddresses() {
+        return Collections.unmodifiableSet(addresses);
     }
 
     /**
@@ -77,6 +78,7 @@ public class Instance {
      *
      * @return port number
      */
+    @SuppressWarnings("unused")
     public int getPort() {
         return port;
     }
@@ -89,6 +91,7 @@ public class Instance {
      * @param attribute name of the attribute to search for
      * @return true if the instance has a value for attribute, false otherwise
      */
+    @SuppressWarnings("unused")
     public boolean hasAttribute(String attribute) {
         return attributes.containsKey(attribute);
     }
@@ -101,6 +104,7 @@ public class Instance {
      * @param attribute name of the attribute to search for
      * @return value of the given attribute, or null if the attribute doesn't exist in this Instance
      */
+    @SuppressWarnings("unused")
     public String lookupAttribute(String attribute) {
         return attributes.get(attribute);
     }
@@ -113,5 +117,54 @@ public class Instance {
                 ", port=" + port +
                 ", attributes=" + attributes +
                 '}';
+    }
+
+    @Override
+    public int hashCode() {
+        int result = 17;
+        result = 31 * result + name.hashCode();
+        result = 31 * result + port;
+        for (InetAddress address : addresses) {
+            result = 31 * result + address.hashCode();
+        }
+        for (Map.Entry<String, String> entry : attributes.entrySet()) {
+            result = 31 * result + entry.hashCode();
+        }
+        return result;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (!(obj instanceof Instance)) {
+            return false;
+        }
+        Instance other = (Instance)obj;
+        if (!name.equals(other.name)) {
+            return false;
+        }
+        if (port != other.port) {
+            return false;
+        }
+        for (InetAddress address : addresses) {
+            if (!other.addresses.contains(address)) {
+                return false;
+            }
+        }
+        for (InetAddress address : other.addresses) {
+            if (!addresses.contains(address)) {
+                return false;
+            }
+        }
+        for (String key : attributes.keySet()) {
+            if (!other.attributes.containsKey(key) || !other.attributes.get(key).equals(attributes.get(key))) {
+                return false;
+            }
+        }
+        for (String key : other.attributes.keySet()) {
+            if (!attributes.containsKey(key) || !attributes.get(key).equals(other.attributes.get(key))) {
+                return false;
+            }
+        }
+        return true;
     }
 }
