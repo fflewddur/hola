@@ -21,7 +21,7 @@ package net.straylightlabs.hola.dns;
 
 import java.nio.ByteBuffer;
 
-class PtrRecord extends Record {
+public class PtrRecord extends Record {
     private final String userVisibleName;
     private final String ptrName;
 

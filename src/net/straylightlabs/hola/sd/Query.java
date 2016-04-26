@@ -19,16 +19,16 @@
 
 package net.straylightlabs.hola.sd;
 
-import net.straylightlabs.hola.dns.Domain;
-import net.straylightlabs.hola.dns.Message;
-import net.straylightlabs.hola.dns.Question;
-import net.straylightlabs.hola.dns.Response;
+import net.straylightlabs.hola.dns.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.*;
-import java.util.*;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public class Query {
     private final Service service;
@@ -40,8 +40,10 @@ public class Query {
     private InetAddress mdnsGroupIPv6;
     private boolean isUsingIPv4;
     private boolean isUsingIPv6;
+    private Question initialQuestion;
+    private Set<Question> questions;
     private Set<Instance> instances;
-    private Map<String, Response> instanceResponseMap;
+    private Set<Record> records;
 
     private final static Logger logger = LoggerFactory.getLogger(Query.class);
 
@@ -83,7 +85,8 @@ public class Query {
         this.service = service;
         this.domain = domain;
         this.browsingTimeout = browsingTimeout;
-        this.instanceResponseMap = Collections.synchronizedMap(new HashMap<>());
+        this.questions = new HashSet<>();
+        this.records = new HashSet<>();
     }
 
     /**
@@ -93,12 +96,12 @@ public class Query {
      * @throws IOException
      */
     public Set<Instance> runOnce() throws IOException {
-        Question question = new Question(service, domain);
+        initialQuestion = new Question(service, domain);
         instances = Collections.synchronizedSet(new HashSet<>());
         try {
             openSocket();
             Thread listener = listenForResponses();
-            ask(question);
+            ask(initialQuestion);
             try {
                 listener.join();
             } catch (InterruptedException e) {
@@ -133,11 +136,11 @@ public class Query {
             socket.joinGroup(mdnsGroupIPv6);
             isUsingIPv6 = true;
         } catch (SocketException e) {
-            logger.error("SocketException when joining group fro {}, IPv6-only hosts will not be found",
+            logger.error("SocketException when joining group for {}, IPv6-only hosts will not be found",
                     MDNS_IP6_ADDRESS, e);
         }
         if (!isUsingIPv4 && !isUsingIPv6) {
-            throw new IOException("No usable interfaces found");
+            throw new IOException("No usable network interfaces found");
         }
         socket.setTimeToLive(10);
         socket.setSoTimeout(browsingTimeout);
@@ -150,6 +153,7 @@ public class Query {
     }
 
     private Set<Instance> collectResponses() {
+        // TODO Stop listening after timeout has been reached
         for (int timeouts = 0; timeouts == 0; ) {
             byte[] responseBuffer = new byte[Message.MAX_LENGTH];
             DatagramPacket responsePacket = new DatagramPacket(responseBuffer, responseBuffer.length);
@@ -160,22 +164,14 @@ public class Query {
 //                logger.debug("Response of length {} at offset {}: {}", responsePacket.getLength(), responsePacket.getOffset(), responsePacket.getData());
                 try {
                     Response response = Response.createFrom(responsePacket);
-                    if (response.isComplete()) {
-                        instances.add(Instance.createFrom(response));
-                    } else {
-                        boolean foundRecords = false;
-                        for (String name : instanceResponseMap.keySet()) {
-                            if (response.containsRecordsFor(name)) {
-                                instanceResponseMap.put(name, response.mergeWith(instanceResponseMap.get(name)));
-                                foundRecords = true;
-                            }
-                        }
-                        if (!foundRecords) {
-                            fetchMissingRecords(response);
-                        } else if (response.isComplete()) {
-                            instances.add(Instance.createFrom(response));
-                        }
+                    if (!response.answers(questions)) {
+                        // This response isn't related to any of the questions we asked
+                        logger.debug("This response doesn't answer any of our questions, ignoring it.");
+                        timeouts = 0;
+                        continue;
                     }
+                    records.addAll(response.getRecords());
+                    fetchMissingRecords();
                 } catch (IllegalArgumentException e) {
                     logger.debug("Response was not a mDNS response packet, ignoring it");
                     timeouts = 0;
@@ -188,48 +184,91 @@ public class Query {
                 logger.error("IOException while listening for mDNS responses: ", e);
             }
         }
-
+        buildInstancesFromRecords();
         return instances;
     }
 
-    private void fetchMissingRecords(Response response) throws IOException {
-        instanceResponseMap.put(response.getPtr(), response);
-        if (!response.hasSrvRecords()) {
-            logger.debug("Response has no SRV records: {}", response);
-            queryForSrvRecord(response);
+    /**
+     * Verify that each PTR record has corresponding SRV, TXT, and either A or AAAA records.
+     * Request any that are missing.
+     */
+    private void fetchMissingRecords() throws IOException {
+        logger.debug("Records includes:");
+        records.stream().forEach(r -> logger.debug("{}", r));
+        for (PtrRecord ptr : records.stream().filter(r -> r instanceof PtrRecord).map(r -> (PtrRecord) r).collect(Collectors.toList())) {
+            fetchMissingSrvRecordsFor(ptr);
+            fetchMissingTxtRecordsFor(ptr);
         }
-        if (!response.hasTxtRecords()) {
-            logger.debug("Response has no TXT records: {}", response);
-            queryForTxtRecord(response);
-        }
-        if (!response.hasInetAddresses()) {
-            logger.debug("Response has no A or AAAA records: {}", response);
-            queryForAddresses(response);
+        for (SrvRecord srv : records.stream().filter(r -> r instanceof SrvRecord).map(r -> (SrvRecord) r).collect(Collectors.toList())) {
+            fetchMissingAddressRecordsFor(srv);
         }
     }
 
-    private void queryForSrvRecord(Response response) throws IOException {
-        Question question = new Question(response.getPtr(), Question.QType.SRV, Question.QClass.IN);
+    private void fetchMissingSrvRecordsFor(PtrRecord ptr) throws IOException {
+        long numRecords = records.stream().filter(r -> r instanceof SrvRecord).filter(
+                r -> r.getName().equals(ptr.getPtrName())
+        ).count();
+        if (numRecords == 0) {
+            logger.debug("Response has no SRV records");
+            querySrvRecordFor(ptr);
+        }
+    }
+
+    private void fetchMissingTxtRecordsFor(PtrRecord ptr) throws IOException {
+        long numRecords = records.stream().filter(r -> r instanceof TxtRecord).filter(
+                r -> r.getName().equals(ptr.getPtrName())
+        ).count();
+        if (numRecords == 0) {
+            logger.debug("Response has no TXT records");
+            queryTxtRecordFor(ptr);
+        }
+    }
+
+    private void fetchMissingAddressRecordsFor(SrvRecord srv) throws IOException {
+        long numRecords = records.stream().filter(r -> r instanceof ARecord || r instanceof AaaaRecord).filter(
+                r -> r.getName().equals(srv.getTarget())
+        ).count();
+        if (numRecords == 0) {
+            logger.debug("Response has no A or AAAA records");
+            queryAddressesFor(srv);
+        }
+    }
+
+    private void querySrvRecordFor(PtrRecord ptr) throws IOException {
+        Question question = new Question(ptr.getPtrName(), Question.QType.SRV, Question.QClass.IN);
         ask(question);
     }
 
-    private void queryForTxtRecord(Response response) throws IOException {
-        Question question = new Question(response.getPtr(), Question.QType.TXT, Question.QClass.IN);
+    private void queryTxtRecordFor(PtrRecord ptr) throws IOException {
+        Question question = new Question(ptr.getPtrName(), Question.QType.TXT, Question.QClass.IN);
         ask(question);
     }
 
-    private void queryForAddresses(Response response) throws IOException {
-        Question question = new Question(response.getPtr(), Question.QType.A, Question.QClass.IN);
+    private void queryAddressesFor(SrvRecord srv) throws IOException {
+        Question question = new Question(srv.getTarget(), Question.QType.A, Question.QClass.IN);
+        ask(question);
+        question = new Question(srv.getTarget(), Question.QType.AAAA, Question.QClass.IN);
         ask(question);
     }
 
     private void ask(Question question) throws IOException {
+        if (questions.contains(question)) {
+            logger.debug("We've already asked {}, we won't ask again");
+            return;
+        }
+
+        questions.add(question);
         if (isUsingIPv4) {
             question.askOn(socket, mdnsGroupIPv4);
         }
         if (isUsingIPv6) {
             question.askOn(socket, mdnsGroupIPv6);
         }
+    }
+
+    private void buildInstancesFromRecords() {
+        records.stream().filter(r -> r instanceof PtrRecord && initialQuestion.answeredBy(r))
+                .map(r -> (PtrRecord) r).forEach(ptr -> instances.add(Instance.createFromRecords(ptr, records)));
     }
 
     private void closeSocket() {

@@ -24,9 +24,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.DatagramPacket;
-import java.net.InetAddress;
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class Response extends Message {
     private final List<Question> questions;
@@ -101,6 +99,10 @@ public class Response extends Message {
         logger.debug("Questions={}, Answers={}, NameServers={}, AdditionalRecords={}", numQuestions, numAnswers, numNameServers, numAdditionalRecords);
     }
 
+    public Set<Record> getRecords() {
+        return new HashSet<>(Collections.unmodifiableSet(new HashSet<>(records)));
+    }
+
     public String getUserVisibleName() {
         Optional<PtrRecord> record = records.stream().filter(r -> r instanceof PtrRecord).map(r -> (PtrRecord) r).findAny();
         if (record.isPresent()) {
@@ -111,106 +113,20 @@ public class Response extends Message {
         }
     }
 
-    public List<InetAddress> getInetAddresses() {
-        List<InetAddress> addresses = new ArrayList<>();
-        addresses.addAll(records.stream().filter(r -> r instanceof ARecord).map(r -> ((ARecord) r).getAddress()).collect(Collectors.toList()));
-        addresses.addAll(records.stream().filter(r -> r instanceof AaaaRecord).map(r -> ((AaaaRecord) r).getAddress()).collect(Collectors.toList()));
-        if (addresses.size() == 0) {
-            logger.debug("No A/AAAA records: {}", records);
-            throw new IllegalStateException("Cannot call getInetAddresses when no address records are available");
-        }
-        return addresses;
-    }
-
-    public int getPort() {
-        Optional<SrvRecord> record = records.stream().filter(r -> r instanceof SrvRecord).map(r -> (SrvRecord) r).findAny();
-        if (record.isPresent()) {
-            return record.get().getPort();
-        } else {
-            logger.debug("No SRV records: {}", records);
-            throw new IllegalStateException("Cannot cal getPort when no SRV record is available");
-        }
-    }
-
-    public Map<String, String> getAttributes() {
-        Optional<TxtRecord> record = records.stream().filter(r -> r instanceof TxtRecord).map(r -> (TxtRecord) r).findAny();
-        if (record.isPresent()) {
-            return record.get().getAttributes();
-        } else {
-            return Collections.emptyMap();
-        }
-    }
-
-    /**
-     * Returns true if this response contains at least one A/AAAA record, SRV record, and TXT record.
-     */
-    public boolean isComplete() {
-        return (hasInetAddresses() && hasSrvRecords() && hasTxtRecords());
-    }
-
-    /**
-     * Returns true if this response has at least one A or AAAA record.
-     */
-    public boolean hasInetAddresses() {
-        long count = 0;
-        count += records.stream().filter(r -> r instanceof ARecord).count();
-        count += records.stream().filter(r -> r instanceof AaaaRecord).count();
-        return count > 0;
-    }
-
-    /**
-     * Returns true if this response has at least one SRV record.
-     */
-    public boolean hasSrvRecords() {
-        long count = 0;
-        count += records.stream().filter(r -> r instanceof SrvRecord).count();
-        return count > 0;
-    }
-
-    /**
-     * Returns true if this response has at least one TXT record.
-     */
-    public boolean hasTxtRecords() {
-        long count = 0;
-        count += records.stream().filter(r -> r instanceof TxtRecord).count();
-        return count > 0;
-    }
-
-    /**
-     * Returns the PTR name associated with this response.
-     */
-    public String getPtr() {
-        Optional<PtrRecord> record = records.stream().filter(r -> r instanceof PtrRecord).map(r -> (PtrRecord) r).findAny();
-        if (record.isPresent()) {
-            return record.get().getPtrName();
-        } else {
-            logger.debug("No PTR records: {}", records);
-            throw new IllegalStateException("Cannot call getPtr when no PTR record is available");
-        }
-    }
-
-    /**
-     * Returns true if this response contains records for the given instance, false otherwise.
-     */
-    public boolean containsRecordsFor(String instance) {
-        boolean containsRecordsForInstance = false;
-        for (Record record : records) {
-            if (instance.equals(record.getName())) {
-                containsRecordsForInstance = true;
+    public boolean answers(Set<Question> questions) {
+        return (records.stream().filter(r -> {
+            boolean match = false;
+            String name = r.getName();
+            for (Question q : questions) {
+                if (name.equals(q.getQName())) {
+                    match = true;
+                    break;
+                }
             }
-        }
-        return containsRecordsForInstance;
+            return match;
+        }).count() > 0);
     }
 
-    /**
-     * Combines records from @other with this response.
-     */
-    public Response mergeWith(Response other) {
-        if (other != null) {
-            this.records.addAll(other.records);
-        }
-        return this;
-    }
 
     @Override
     public String toString() {

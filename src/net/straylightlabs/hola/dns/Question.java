@@ -112,6 +112,10 @@ public class Question extends Message {
         socket.send(packet);
     }
 
+    public boolean answeredBy(Record record) {
+        return record.getName().equals(qName);
+    }
+
     String getQName() {
         return qName;
     }
@@ -166,6 +170,7 @@ public class Question extends Message {
         MINFO(14),
         MX(15),
         TXT(16),
+        AAAA(28),
         SRV(33),
         ANY(255);
 

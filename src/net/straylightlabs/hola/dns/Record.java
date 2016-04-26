@@ -29,7 +29,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-abstract class Record {
+public abstract class Record {
     protected final String name;
     protected final long ttl;
 
@@ -141,11 +141,11 @@ abstract class Record {
         return strings;
     }
 
-    String getName() {
+    public String getName() {
         return name;
     }
 
-    long getTTL() {
+    public long getTTL() {
         return ttl;
     }
 

@@ -19,10 +19,13 @@
 
 package net.straylightlabs.hola.sd;
 
-import net.straylightlabs.hola.dns.Response;
+import net.straylightlabs.hola.dns.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.InetAddress;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class Instance {
     private final String name;
@@ -30,12 +33,36 @@ public class Instance {
     private final int port;
     private final Map<String, String> attributes;
 
-    static Instance createFrom(Response response) {
-        String name = response.getUserVisibleName();
-        List<InetAddress> addresses = response.getInetAddresses();
-        int port = response.getPort();
-        Map<String, String> attributes = response.getAttributes();
+    private final static Logger logger = LoggerFactory.getLogger(Instance.class);
 
+    static Instance createFromRecords(PtrRecord ptr, Set<Record> records) {
+        String name = ptr.getUserVisibleName();
+        int port;
+        List<InetAddress> addresses = new ArrayList<>();
+        Map<String, String> attributes = Collections.emptyMap();
+
+        Optional<SrvRecord> srv = records.stream()
+                .filter(r -> r instanceof SrvRecord && r.getName().equals(ptr.getPtrName()))
+                .map(r -> (SrvRecord) r).findFirst();
+        if (srv.isPresent()) {
+            logger.debug("Using SrvRecord {} to create instance for {}", srv, ptr);
+            port = srv.get().getPort();
+            addresses.addAll(records.stream().filter(r -> r instanceof ARecord)
+                    .filter(r -> r.getName().equals(srv.get().getTarget())).map(r -> ((ARecord) r).getAddress())
+                    .collect(Collectors.toList()));
+            addresses.addAll(records.stream().filter(r -> r instanceof AaaaRecord)
+                    .filter(r -> r.getName().equals(srv.get().getTarget())).map(r -> ((AaaaRecord) r).getAddress())
+                    .collect(Collectors.toList()));
+        } else {
+            throw new IllegalStateException("Cannot create Instance when no SRV record is available");
+        }
+        Optional<TxtRecord> txt = records.stream()
+                .filter(r -> r instanceof TxtRecord && r.getName().equals(ptr.getPtrName()))
+                .map(r -> (TxtRecord) r).findFirst();
+        if (txt.isPresent()) {
+            logger.debug("Using TxtRecord {} to create attributes for {}", txt, ptr);
+            attributes = txt.get().getAttributes();
+        }
         return new Instance(name, addresses, port, attributes);
     }
 
@@ -49,7 +76,7 @@ public class Instance {
 
     /**
      * Get the user-visible name associated with this instance.
-     *
+     * <p>
      * This value comes from the instance's PTR record.
      *
      * @return name
@@ -61,7 +88,7 @@ public class Instance {
 
     /**
      * Get the set of IP addresses associated with this instance.
-     *
+     * <p>
      * These values come from the instance's A and AAAA records.
      *
      * @return set of addresses
@@ -73,7 +100,7 @@ public class Instance {
 
     /**
      * Get the port number associated with this instance.
-     *
+     * <p>
      * This value comes from the instance's SRV record.
      *
      * @return port number
@@ -85,7 +112,7 @@ public class Instance {
 
     /**
      * Check whether this instance has the specified attribute.
-     *
+     * <p>
      * Attributes come from the instance's TXT records.
      *
      * @param attribute name of the attribute to search for
@@ -98,7 +125,7 @@ public class Instance {
 
     /**
      * Get the value of the specified attribute.
-     *
+     * <p>
      * Attributes come from the instance's TXT records.
      *
      * @param attribute name of the attribute to search for
@@ -138,7 +165,7 @@ public class Instance {
         if (!(obj instanceof Instance)) {
             return false;
         }
-        Instance other = (Instance)obj;
+        Instance other = (Instance) obj;
         if (!name.equals(other.name)) {
             return false;
         }
