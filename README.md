@@ -13,7 +13,7 @@ Hola is a work-in-progress. The following features are currently supported:
 
 # API Example
 
-To search for services, create a `Query` specifying the type of service you're looking for and the domain to search. You can execute a blocking search with the `runOnce()` method; this will return a list of `Instance` objects representing the discovered instances. As an example, the following code  will search for TiVo devices on the user's local network:
+To search for services, create a `Query` specifying the type of service you're looking for and the domain to search. You can execute a blocking search with the `runOnce()` method; this will return a set of `Instance` objects representing the discovered instances. As an example, the following code  will search for TiVo devices on the user's local network:
 
     public class TivoFinder {
         final static Logger logger = LoggerFactory.getLogger(TivoFinder.class);
@@ -22,7 +22,7 @@ To search for services, create a `Query` specifying the type of service you're l
             try {
                 Service service = Service.fromName("_tivo-mindrpc._tcp");
                 Query query = Query.createFor(service, Domain.LOCAL);
-                List<Instance> instances = query.runOnce();
+                Set<Instance> instances = query.runOnce();
                 instances.stream().forEach(System.out::println);
             } catch (UnknownHostException e) {
                 logger.error("Unknown host: ", e);
@@ -32,10 +32,10 @@ To search for services, create a `Query` specifying the type of service you're l
         }
     }
 
-Each `Instance` will have a user-visible name, a list of IP addresses, a port number, and a set of attributes:
+Each `Instance` will have a user-visible name, a set of IP addresses, a port number, and a map of attributes:
 
     String userVisibleName = instance.getName();
-    List<InetAddress> addresses = instance.getAddresses();
+    Set<InetAddress> addresses = instance.getAddresses();
     int port = instance.getPort();
     if (instance.hasAttribute("platform")) {
         String platform = instance.lookupAttribute("platform");
