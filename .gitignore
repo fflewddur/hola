@@ -14,9 +14,7 @@ hs_err_pid*
 .DS_Store
 
 # IDE files
-/.idea/
-/.idea/workspace.xml
-/.idea/tasks.xml
+/.idea
 
 /build.properties
 /.gradle
