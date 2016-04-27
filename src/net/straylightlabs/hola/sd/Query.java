@@ -153,13 +153,15 @@ public class Query {
     }
 
     private Set<Instance> collectResponses() {
-        // TODO Stop listening after timeout has been reached
-        for (int timeouts = 0; timeouts == 0; ) {
+        long startTime = System.currentTimeMillis();
+        long currentTime = startTime;
+        for (int timeouts = 0; timeouts == 0 && currentTime - startTime < browsingTimeout; ) {
             byte[] responseBuffer = new byte[Message.MAX_LENGTH];
             DatagramPacket responsePacket = new DatagramPacket(responseBuffer, responseBuffer.length);
             try {
                 logger.debug("Listening for responses...");
                 socket.receive(responsePacket);
+                currentTime = System.currentTimeMillis();
                 logger.debug("Response received!");
 //                logger.debug("Response of length {} at offset {}: {}", responsePacket.getLength(), responsePacket.getOffset(), responsePacket.getData());
                 try {
@@ -253,7 +255,7 @@ public class Query {
 
     private void ask(Question question) throws IOException {
         if (questions.contains(question)) {
-            logger.debug("We've already asked {}, we won't ask again");
+            logger.debug("We've already asked {}, we won't ask again", question);
             return;
         }
 
