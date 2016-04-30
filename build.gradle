@@ -19,6 +19,8 @@
 
 apply plugin: 'java'
 
+version = '0.2.0'
+
 repositories {
     mavenCentral()
 }
@@ -27,4 +29,8 @@ dependencies {
     testCompile 'junit:junit:4.12'
     compile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.+'
     compile group: 'ch.qos.logback', name: 'logback-classic', version: '1.+'
+}
+
+jar {
+    baseName 'hola'
 }
