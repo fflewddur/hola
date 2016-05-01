@@ -31,7 +31,7 @@ import java.net.UnknownHostException;
 import java.util.Set;
 
 /**
- * A minimal implementation of mDNS-SD, as described in RFCs 6762 & 6763.
+ * A minimal implementation of mDNS-SD, as described in RFCs 6762 &amp; 6763.
  */
 
 public class HolaDriver {

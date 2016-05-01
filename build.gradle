@@ -18,7 +18,11 @@
  */
 
 apply plugin: 'java'
+apply plugin: 'maven'
+apply plugin: 'signing'
 
+group = 'net.straylightlabs'
+archivesBaseName = 'hola'
 version = '0.2.0'
 
 repositories {
@@ -27,10 +31,69 @@ repositories {
 
 dependencies {
     testCompile 'junit:junit:4.12'
-    compile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.+'
-    compile group: 'ch.qos.logback', name: 'logback-classic', version: '1.+'
+    compile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.21'
+    compile group: 'ch.qos.logback', name: 'logback-classic', version: '1.1.7'
 }
 
-jar {
-    baseName 'hola'
+task javadocJar(type: Jar) {
+    classifier = 'javadoc'
+    from javadoc
+}
+
+task sourcesJar(type: Jar) {
+    classifier = 'sources'
+    from sourceSets.main.allSource
+}
+
+artifacts {
+    archives javadocJar, sourcesJar
+}
+
+signing {
+    sign configurations.archives
+}
+
+uploadArchives {
+    repositories {
+        mavenDeployer {
+            beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
+
+            repository(url: "https://oss.sonatype.org/service/local/staging/deploy/maven2/") {
+                authentication(userName: ossrhUsername, password: ossrhPassword)
+            }
+
+            snapshotRepository(url: "https://oss.sonatype.org/content/repositories/snapshots/") {
+                authentication(userName: ossrhUsername, password: ossrhPassword)
+            }
+
+            pom.project {
+                name 'Hola'
+                packaging 'jar'
+                artifactId 'hola'
+                description 'Hola is a minimalist Java implementation of Multicast DNS Service Discovery (mDNS-SD)'
+                url 'https://github.com/fflewddur/hola'
+
+                scm {
+                    connection 'scm:git:https://github.com/fflewddur/hola.git'
+                    developerConnection 'scm:git:https://github.com/fflewddur/hola.git'
+                    url 'https://github.com/fflewddur/hola.git'
+                }
+
+                licenses {
+                    license {
+                        name 'GNU General Public License (GPL)'
+                        url 'http://www.gnu.org/licenses/gpl.txt'
+                    }
+                }
+
+                developers {
+                    developer {
+                        id 'fflewddur'
+                        name 'Todd Kulesza'
+                        email 'todd@dropline.net'
+                    }
+                }
+            }
+        }
+    }
 }

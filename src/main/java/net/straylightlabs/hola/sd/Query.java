@@ -93,7 +93,7 @@ public class Query {
      * Synchronously runs the Query a single time.
      *
      * @return a list of Instances that match this Query
-     * @throws IOException
+     * @throws IOException thrown on socket and network errors
      */
     public Set<Instance> runOnce() throws IOException {
         initialQuestion = new Question(service, domain);

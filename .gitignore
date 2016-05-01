@@ -17,4 +17,5 @@ hs_err_pid*
 /.idea
 
 /build.properties
+/gradle.properties
 /.gradle
