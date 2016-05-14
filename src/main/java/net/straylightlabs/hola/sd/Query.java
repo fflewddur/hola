@@ -28,12 +28,16 @@ import java.net.*;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 public class Query {
     private final Service service;
     private final Domain domain;
     private final int browsingTimeout;
+    private final Lock socketLock;
 
     private MulticastSocket socket;
     private InetAddress mdnsGroupIPv4;
@@ -44,12 +48,15 @@ public class Query {
     private Set<Question> questions;
     private Set<Instance> instances;
     private Set<Record> records;
+    private boolean listenerStarted;
+    private boolean listenerFinished;
 
     private final static Logger logger = LoggerFactory.getLogger(Query.class);
 
     public static final String MDNS_IP4_ADDRESS = "224.0.0.251";
     public static final String MDNS_IP6_ADDRESS = "FF02::FB";
     public static final int MDNS_PORT = 5353;
+    private static final int WAIT_FOR_LISTENER_MS = 10; // Number of milliseconds to wait for the listener to start
 
     /**
      * The browsing socket will timeout after this many milliseconds
@@ -87,6 +94,7 @@ public class Query {
         this.browsingTimeout = browsingTimeout;
         this.questions = new HashSet<>();
         this.records = new HashSet<>();
+        this.socketLock = new ReentrantLock();
     }
 
     /**
@@ -101,6 +109,9 @@ public class Query {
         try {
             openSocket();
             Thread listener = listenForResponses();
+            while (!isServerIsListening()){
+                logger.debug("Server is not yet listening");
+            }
             ask(initialQuestion);
             try {
                 listener.join();
@@ -111,6 +122,41 @@ public class Query {
             closeSocket();
         }
         return instances;
+    }
+
+    private void ask(Question question) throws IOException {
+        if (questions.contains(question)) {
+            logger.debug("We've already asked {}, we won't ask again", question);
+            return;
+        }
+
+        questions.add(question);
+        if (isUsingIPv4) {
+            question.askOn(socket, mdnsGroupIPv4);
+        }
+        if (isUsingIPv6) {
+            question.askOn(socket, mdnsGroupIPv6);
+        }
+    }
+
+    private boolean isServerIsListening() {
+        boolean retval;
+        try {
+            while (!socketLock.tryLock(WAIT_FOR_LISTENER_MS, TimeUnit.MILLISECONDS)) {
+                socketLock.notify();
+                logger.debug("Waiting to acquire socket lock");
+            }
+            if (listenerFinished) {
+                throw new RuntimeException("Listener has already finished");
+            }
+            retval = listenerStarted;
+        } catch (InterruptedException e) {
+            logger.error("Interrupted while waiting to acquire socket lock: ", e);
+            throw new RuntimeException("Server is not listening");
+        } finally {
+            socketLock.unlock();
+        }
+        return retval;
     }
 
     /**
@@ -155,6 +201,10 @@ public class Query {
     private Set<Instance> collectResponses() {
         long startTime = System.currentTimeMillis();
         long currentTime = startTime;
+        socketLock.lock();
+        listenerStarted = true;
+        listenerFinished = false;
+        socketLock.unlock();
         for (int timeouts = 0; timeouts == 0 && currentTime - startTime < browsingTimeout; ) {
             byte[] responseBuffer = new byte[Message.MAX_LENGTH];
             DatagramPacket responsePacket = new DatagramPacket(responseBuffer, responseBuffer.length);
@@ -186,6 +236,9 @@ public class Query {
                 logger.error("IOException while listening for mDNS responses: ", e);
             }
         }
+        socketLock.lock();
+        listenerFinished = true;
+        socketLock.unlock();
         buildInstancesFromRecords();
         return instances;
     }
@@ -251,21 +304,6 @@ public class Query {
         ask(question);
         question = new Question(srv.getTarget(), Question.QType.AAAA, Question.QClass.IN);
         ask(question);
-    }
-
-    private void ask(Question question) throws IOException {
-        if (questions.contains(question)) {
-            logger.debug("We've already asked {}, we won't ask again", question);
-            return;
-        }
-
-        questions.add(question);
-        if (isUsingIPv4) {
-            question.askOn(socket, mdnsGroupIPv4);
-        }
-        if (isUsingIPv6) {
-            question.askOn(socket, mdnsGroupIPv6);
-        }
     }
 
     private void buildInstancesFromRecords() {
