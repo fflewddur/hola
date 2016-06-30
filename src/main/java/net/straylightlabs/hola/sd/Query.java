@@ -104,10 +104,21 @@ public class Query {
      * @throws IOException thrown on socket and network errors
      */
     public Set<Instance> runOnce() throws IOException {
+        return runOnceOn(InetAddress.getLocalHost());
+    }
+
+    /**
+     * Synchronously runs the Query a single time.
+     *
+     * @param localhost address of the network interface to listen on
+     * @return a list of Instances that match this Query
+     * @throws IOException thrown on socket and network errors
+     */
+    public Set<Instance> runOnceOn(InetAddress localhost) throws IOException {
         initialQuestion = new Question(service, domain);
         instances = Collections.synchronizedSet(new HashSet<>());
         try {
-            openSocket();
+            openSocket(localhost);
             Thread listener = listenForResponses();
             while (!isServerIsListening()){
                 logger.debug("Server is not yet listening");
@@ -167,10 +178,11 @@ public class Query {
         throw new RuntimeException("Not implemented yet");
     }
 
-    private void openSocket() throws IOException {
+    private void openSocket(InetAddress localhost) throws IOException {
         mdnsGroupIPv4 = InetAddress.getByName(MDNS_IP4_ADDRESS);
         mdnsGroupIPv6 = InetAddress.getByName(MDNS_IP6_ADDRESS);
-        socket = new MulticastSocket(MDNS_PORT);
+        InetSocketAddress socketAddress = new InetSocketAddress(localhost, MDNS_PORT);
+        socket = new MulticastSocket(socketAddress);
         try {
             socket.joinGroup(mdnsGroupIPv4);
             isUsingIPv4 = true;
