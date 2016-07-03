@@ -25,6 +25,9 @@ group = 'net.straylightlabs'
 archivesBaseName = 'hola'
 version = '0.2.2'
 
+def ossrhUsername = hasProperty('ossrhUsername') ? ossrhUsername : System.getenv('ossrhUsername')
+def ossrhPassword = hasProperty('ossrhPassword') ? ossrhPassword : System.getenv('ossrhPassword')
+
 repositories {
     mavenCentral()
 }
