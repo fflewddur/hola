@@ -115,6 +115,7 @@ public class Query {
      * @throws IOException thrown on socket and network errors
      */
     public Set<Instance> runOnceOn(InetAddress localhost) throws IOException {
+        logger.debug("Running query on {}", localhost);
         initialQuestion = new Question(service, domain);
         instances = Collections.synchronizedSet(new HashSet<>());
         try {
@@ -181,8 +182,8 @@ public class Query {
     private void openSocket(InetAddress localhost) throws IOException {
         mdnsGroupIPv4 = InetAddress.getByName(MDNS_IP4_ADDRESS);
         mdnsGroupIPv6 = InetAddress.getByName(MDNS_IP6_ADDRESS);
-        InetSocketAddress socketAddress = new InetSocketAddress(localhost, MDNS_PORT);
-        socket = new MulticastSocket(socketAddress);
+        socket = new MulticastSocket(MDNS_PORT);
+        socket.setInterface(localhost);
         try {
             socket.joinGroup(mdnsGroupIPv4);
             isUsingIPv4 = true;
