@@ -1,4 +1,4 @@
-Hola
+Hola [![Build Status](https://travis-ci.org/fflewddur/hola.svg?branch=master)](https://travis-ci.org/fflewddur/hola)
 ====
 
 Hola is a minimalist Java implementation of Multicast DNS Service Discovery (mDNS-SD). The purpose of Hola is to give Java developers a dead-simple API for finding Zeroconf-enabled services on a local network. It follows RFCs [6762](https://tools.ietf.org/html/rfc6762) and [6763](https://tools.ietf.org/html/rfc6763) and is compatible with Apple's [Bonjour](https://developer.apple.com/bonjour/) mDNS-SD implementation.
