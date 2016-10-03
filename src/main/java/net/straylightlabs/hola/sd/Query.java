@@ -50,6 +50,7 @@ public class Query {
     private Set<Record> records;
     private boolean listenerStarted;
     private boolean listenerFinished;
+    private InetAddress host = null;
 
     private final static Logger logger = LoggerFactory.getLogger(Query.class);
 
@@ -68,10 +69,23 @@ public class Query {
      *
      * @param service service to search for
      * @param domain  domain to search on
+     * @param host    Address where the query will be apply
      * @return a new Query object
      */
     @SuppressWarnings("unused")
-    public static Query createFor(Service service, Domain domain) {
+    public static Query createFor(Service service, Domain domain, InetAddress host) {
+        return new Query(service, domain, BROWSING_TIMEOUT, host);
+    }
+
+    /**
+     * Create a Query for the given Service and Domain.
+     *
+     * @param service service to search for
+     * @param domain  domain to search on
+     * @return a new Query object
+     */
+    @SuppressWarnings("unused")
+    public static Query createFor(Service service, Domain domain) throws UnknownHostException {
         return new Query(service, domain, BROWSING_TIMEOUT);
     }
 
@@ -84,17 +98,52 @@ public class Query {
      * @return a new Query object
      */
     @SuppressWarnings("unused")
-    public static Query createWithTimeout(Service service, Domain domain, int timeout) {
+    public static Query createWithTimeout(Service service, Domain domain, int timeout) throws UnknownHostException {
         return new Query(service, domain, timeout);
     }
 
-    private Query(Service service, Domain domain, int browsingTimeout) {
+    /**
+     * Create a Query for the given Service and Domain.
+     *
+     * @param service service to search for
+     * @param domain  domain to search on
+     * @param timeout time in MS to wait for a response
+     * @return a new Query object
+     */
+    public static Query createWithTimeout(Service service, Domain domain, int timeout, InetAddress host) {
+        return new Query(service, domain, timeout, host);
+    }
+
+    /**
+     * @param service         service to search for
+     * @param domain          domain to search on
+     * @param browsingTimeout time in MS to wait for a response
+     * @throws UnknownHostException Thrown to indicate that the IP address of a host could not be determined.
+     */
+    private Query(Service service, Domain domain, int browsingTimeout) throws UnknownHostException {
         this.service = service;
         this.domain = domain;
         this.browsingTimeout = browsingTimeout;
         this.questions = new HashSet<>();
         this.records = new HashSet<>();
         this.socketLock = new ReentrantLock();
+        this.host = InetAddress.getLocalHost();
+    }
+
+    /**
+     * @param service         service to search for
+     * @param domain          domain to search on
+     * @param browsingTimeout time in MS to wait for a response
+     * @param host            Address where the query will be apply
+     */
+    private Query(Service service, Domain domain, int browsingTimeout, InetAddress host) {
+        this.service = service;
+        this.domain = domain;
+        this.browsingTimeout = browsingTimeout;
+        this.questions = new HashSet<>();
+        this.records = new HashSet<>();
+        this.socketLock = new ReentrantLock();
+        this.host = host;
     }
 
     /**
@@ -104,7 +153,7 @@ public class Query {
      * @throws IOException thrown on socket and network errors
      */
     public Set<Instance> runOnce() throws IOException {
-        return runOnceOn(InetAddress.getLocalHost());
+        return runOnceOn(host);
     }
 
     /**
@@ -121,7 +170,7 @@ public class Query {
         try {
             openSocket(localhost);
             Thread listener = listenForResponses();
-            while (!isServerIsListening()){
+            while (!isServerIsListening()) {
                 logger.debug("Server is not yet listening");
             }
             ask(initialQuestion);
