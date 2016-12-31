@@ -20,6 +20,7 @@
 package net.straylightlabs.hola.sd;
 
 import net.straylightlabs.hola.dns.*;
+import net.straylightlabs.hola.utils.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -225,6 +226,7 @@ public class Query {
                 logger.debug("Listening for responses...");
                 socket.receive(responsePacket);
                 currentTime = System.currentTimeMillis();
+                Utils.dumpPacket(responsePacket, "response");
                 logger.debug("Response received!");
 //                logger.debug("Response of length {} at offset {}: {}", responsePacket.getLength(), responsePacket.getOffset(), responsePacket.getData());
                 try {

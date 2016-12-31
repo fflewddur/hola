@@ -19,9 +19,9 @@
 
 package net.straylightlabs.hola;
 
-
 import net.straylightlabs.hola.dns.*;
 import net.straylightlabs.hola.sd.InstanceTest;
+import net.straylightlabs.hola.sd.QueryTest;
 import net.straylightlabs.hola.sd.ServiceTest;
 import org.junit.runner.RunWith;
 import org.junit.runners.Suite;
@@ -29,6 +29,6 @@ import org.junit.runners.Suite;
 @RunWith(Suite.class)
 @Suite.SuiteClasses({ARecordTest.class, AaaaRecordTest.class, DomainTest.class, InstanceTest.class,
         PtrRecordTest.class, QuestionTest.class, RecordTest.class, ResponseTest.class, ServiceTest.class,
-        SrvRecordTest.class, TxtRecordTest.class})
+        SrvRecordTest.class, TxtRecordTest.class, QueryTest.class})
 public class TestSuite {
 }
