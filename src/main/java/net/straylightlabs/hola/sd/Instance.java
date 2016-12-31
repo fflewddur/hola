@@ -66,7 +66,7 @@ public class Instance {
         return new Instance(name, addresses, port, attributes);
     }
 
-    private Instance(String name, List<InetAddress> addresses, int port, Map<String, String> attributes) {
+    Instance(String name, List<InetAddress> addresses, int port, Map<String, String> attributes) {
         this.name = name;
         this.addresses = new HashSet<>();
         this.addresses.addAll(addresses);
@@ -149,9 +149,9 @@ public class Instance {
     @Override
     public int hashCode() {
         int result = 17;
-        result = 31 * result + name.hashCode();
-        result = 31 * result + port;
-        for (InetAddress address : addresses) {
+        result = 31 * result + getName().hashCode();
+        result = 31 * result + getPort();
+        for (InetAddress address : getAddresses()) {
             result = 31 * result + address.hashCode();
         }
         for (Map.Entry<String, String> entry : attributes.entrySet()) {
@@ -166,29 +166,29 @@ public class Instance {
             return false;
         }
         Instance other = (Instance) obj;
-        if (!name.equals(other.name)) {
+        if (!getName().equals(other.getName())) {
             return false;
         }
-        if (port != other.port) {
+        if (getPort() != other.getPort()) {
             return false;
         }
-        for (InetAddress address : addresses) {
-            if (!other.addresses.contains(address)) {
+        for (InetAddress address : getAddresses()) {
+            if (!other.getAddresses().contains(address)) {
                 return false;
             }
         }
-        for (InetAddress address : other.addresses) {
-            if (!addresses.contains(address)) {
+        for (InetAddress address : other.getAddresses()) {
+            if (!getAddresses().contains(address)) {
                 return false;
             }
         }
         for (String key : attributes.keySet()) {
-            if (!other.attributes.containsKey(key) || !other.attributes.get(key).equals(attributes.get(key))) {
+            if (!other.hasAttribute(key) || !other.lookupAttribute(key).equals(lookupAttribute(key))) {
                 return false;
             }
         }
         for (String key : other.attributes.keySet()) {
-            if (!attributes.containsKey(key) || !attributes.get(key).equals(other.attributes.get(key))) {
+            if (!hasAttribute(key) || !lookupAttribute(key).equals(other.lookupAttribute(key))) {
                 return false;
             }
         }

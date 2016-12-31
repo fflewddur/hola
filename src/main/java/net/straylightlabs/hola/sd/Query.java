@@ -58,6 +58,7 @@ public class Query {
     public static final String MDNS_IP6_ADDRESS = "FF02::FB";
     public static final int MDNS_PORT = 5353;
     private static final int WAIT_FOR_LISTENER_MS = 10; // Number of milliseconds to wait for the listener to start
+    static final InetAddress TEST_SUITE_ADDRESS = null;
 
     /**
      * The browsing socket will timeout after this many milliseconds
@@ -120,16 +121,21 @@ public class Query {
         initialQuestion = new Question(service, domain);
         instances = Collections.synchronizedSet(new HashSet<>());
         try {
-            openSocket(localhost);
-            Thread listener = listenForResponses();
-            while (!isServerIsListening()){
-                logger.debug("Server is not yet listening");
+            Thread listener = null;
+            if (localhost != TEST_SUITE_ADDRESS) {
+                openSocket(localhost);
+                listener = listenForResponses();
+                while (!isServerIsListening()) {
+                    logger.debug("Server is not yet listening");
+                }
             }
             ask(initialQuestion);
-            try {
-                listener.join();
-            } catch (InterruptedException e) {
-                logger.error("InterruptedException while listening for mDNS responses: ", e);
+            if (listener != null) {
+                try {
+                    listener.join();
+                } catch (InterruptedException e) {
+                    logger.error("InterruptedException while listening for mDNS responses: ", e);
+                }
             }
         } finally {
             closeSocket();
@@ -226,19 +232,11 @@ public class Query {
                 logger.debug("Listening for responses...");
                 socket.receive(responsePacket);
                 currentTime = System.currentTimeMillis();
-                Utils.dumpPacket(responsePacket, "response");
+                //Utils.dumpPacket(responsePacket, "response");
                 logger.debug("Response received!");
 //                logger.debug("Response of length {} at offset {}: {}", responsePacket.getLength(), responsePacket.getOffset(), responsePacket.getData());
                 try {
-                    Response response = Response.createFrom(responsePacket);
-                    if (!response.answers(questions)) {
-                        // This response isn't related to any of the questions we asked
-                        logger.debug("This response doesn't answer any of our questions, ignoring it.");
-                        timeouts = 0;
-                        continue;
-                    }
-                    records.addAll(response.getRecords());
-                    fetchMissingRecords();
+                    parseResponsePacket(responsePacket);
                 } catch (IllegalArgumentException e) {
                     logger.debug("Response was not a mDNS response packet, ignoring it");
                     timeouts = 0;
@@ -258,13 +256,24 @@ public class Query {
         return instances;
     }
 
+    void parseResponsePacket(DatagramPacket packet) throws IOException {
+        Response response = Response.createFrom(packet);
+        if (response.answers(questions)) {
+            records.addAll(response.getRecords());
+            fetchMissingRecords();
+        } else {
+            // This response isn't related to any of the questions we asked
+            logger.debug("This response doesn't answer any of our questions, ignoring it.");
+        }
+    }
+
     /**
      * Verify that each PTR record has corresponding SRV, TXT, and either A or AAAA records.
      * Request any that are missing.
      */
     private void fetchMissingRecords() throws IOException {
         logger.debug("Records includes:");
-        records.stream().forEach(r -> logger.debug("{}", r));
+        records.forEach(r -> logger.debug("{}", r));
         for (PtrRecord ptr : records.stream().filter(r -> r instanceof PtrRecord).map(r -> (PtrRecord) r).collect(Collectors.toList())) {
             fetchMissingSrvRecordsFor(ptr);
             fetchMissingTxtRecordsFor(ptr);
@@ -321,7 +330,7 @@ public class Query {
         ask(question);
     }
 
-    private void buildInstancesFromRecords() {
+    void buildInstancesFromRecords() {
         records.stream().filter(r -> r instanceof PtrRecord && initialQuestion.answeredBy(r))
                 .map(r -> (PtrRecord) r).forEach(ptr -> instances.add(Instance.createFromRecords(ptr, records)));
     }
@@ -331,5 +340,15 @@ public class Query {
             socket.close();
             socket = null;
         }
+    }
+
+    /* Accessors for test suite */
+
+    Set<Question> getQuestions() {
+        return Collections.unmodifiableSet(questions);
+    }
+
+    Set<Instance> getInstances() {
+        return Collections.unmodifiableSet(instances);
     }
 }

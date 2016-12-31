@@ -20,6 +20,7 @@
 package net.straylightlabs.hola.sd;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -53,7 +54,7 @@ public class Service {
     }
 
     public List<String> getLabels() {
-        return labels;
+        return Collections.unmodifiableList(labels);
     }
 
     @Override
