@@ -40,6 +40,14 @@ public class ServiceTest {
         assertTrue("fromName(_http._tcp) == _http._tcp: " + service.getName(), service.getName().equals("_http._tcp"));
         service = Service.fromName("_http._tcp.");
         assertTrue("fromName(_http._tcp.) == _http._tcp: " + service.getName(), service.getName().equals("_http._tcp"));
+        service = Service.fromName("_my_service._tcp");
+        assertTrue("fromName(_my_service._tcp) == _my_service._tcp: " + service.getName(), service.getName().equals("_my_service._tcp"));
+        service = Service.fromName("_my_service._tcp.");
+        assertTrue("fromName(_my_service._tcp.) == _my_service._tcp: " + service.getName(), service.getName().equals("_my_service._tcp"));
+        service = Service.fromName("_my-service._tcp");
+        assertTrue("fromName(_my-service._tcp) == _my-service._tcp: " + service.getName(), service.getName().equals("_my-service._tcp"));
+        service = Service.fromName("_my-service._tcp.");
+        assertTrue("fromName(_my-service._tcp.) == _my-service._tcp: " + service.getName(), service.getName().equals("_my-service._tcp"));
     }
 
     @Test
