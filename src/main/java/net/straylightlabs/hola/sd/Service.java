@@ -29,7 +29,7 @@ public class Service {
     private final String name;
     private final List<String> labels;
 
-    private static final Pattern SERVICE_PATTERN = Pattern.compile("^((_[a-zA-Z0-9-]+\\.)?_(tcp|udp))\\.?|$");
+    private static final Pattern SERVICE_PATTERN = Pattern.compile("^((_[a-zA-Z0-9_\\-]+\\.)?_(tcp|udp))\\.?|$");
 
     public static Service fromName(String name) {
         Matcher matcher = SERVICE_PATTERN.matcher(name);
