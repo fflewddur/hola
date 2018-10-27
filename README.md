@@ -49,4 +49,4 @@ Hola requires Java 8 or higher. It handles logging via SLF4J, so the slf4j-api.j
 
 # License
 
-Hola is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+Hola is free software and released under the MIT License.
