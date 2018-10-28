@@ -20,3 +20,10 @@ hs_err_pid*
 /gradle.properties
 /.gradle
 /hola.iml
+
+/.vscode/
+/.settings/
+/bin
+
+/.classpath
+/.project
