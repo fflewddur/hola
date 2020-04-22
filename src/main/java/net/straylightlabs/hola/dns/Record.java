@@ -143,7 +143,7 @@ public abstract class Record {
             do {
                 int stringLength = buffer.get() & 0xFF;
                 String label = readLabel(buffer, stringLength);
-                bytesRead += label.length() + 1;
+                bytesRead += stringLength + 1;
                 strings.add(label);
             } while (bytesRead < length);
         }
