@@ -138,13 +138,15 @@ public abstract class Record {
 
     public static List<String> readStringsFromBuffer(ByteBuffer buffer, int length) {
         List<String> strings = new ArrayList<>();
-        int bytesRead = 0;
-        do {
-            int stringLength = buffer.get() & 0xFF;
-            String label = readLabel(buffer, stringLength);
-            bytesRead += label.length() + 1;
-            strings.add(label);
-        } while (bytesRead < length);
+        if (length > 0) {
+            int bytesRead = 0;
+            do {
+                int stringLength = buffer.get() & 0xFF;
+                String label = readLabel(buffer, stringLength);
+                bytesRead += label.length() + 1;
+                strings.add(label);
+            } while (bytesRead < length);
+        }
         return strings;
     }
 
