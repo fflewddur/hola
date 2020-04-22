@@ -67,7 +67,7 @@ public class QueryTest {
     public void testTivoQueryWithValidResponse() throws IOException {
         Service service = Service.fromName("_tivo-mindrpc._tcp");
         Query query = Query.createFor(service, Domain.LOCAL);
-        query.runOnceOn(Query.TEST_SUITE_ADDRESS);
+        query.runOnceOn(Optional.ofNullable(Query.TEST_SUITE_ADDRESS));
         Response response = loadResponse("response-mdns-tivo");
         assertTrue(response.answers(query.getQuestions()));
     }
@@ -76,7 +76,7 @@ public class QueryTest {
     public void testQueryWithMultipleValidResponse() throws IOException {
         Service service = Service.fromName("_airport._tcp");
         Query query = Query.createFor(service, Domain.LOCAL);
-        query.runOnceOn(Query.TEST_SUITE_ADDRESS);
+        query.runOnceOn(Optional.ofNullable(Query.TEST_SUITE_ADDRESS));
         DatagramPacket packet = loadPacket("response-mdns-appletv-1");
         query.parseResponsePacket(packet);
         packet = loadPacket("response-mdns-appletv-2");

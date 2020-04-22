@@ -27,7 +27,6 @@
 package net.straylightlabs.hola.sd;
 
 import net.straylightlabs.hola.dns.*;
-import net.straylightlabs.hola.utils.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,6 +34,7 @@ import java.io.IOException;
 import java.net.*;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
@@ -113,7 +113,7 @@ public class Query {
      * @throws IOException thrown on socket and network errors
      */
     public Set<Instance> runOnce() throws IOException {
-        return runOnceOn(InetAddress.getLocalHost());
+        return runOnceOn(Optional.empty());
     }
 
     /**
@@ -123,13 +123,13 @@ public class Query {
      * @return a list of Instances that match this Query
      * @throws IOException thrown on socket and network errors
      */
-    public Set<Instance> runOnceOn(InetAddress localhost) throws IOException {
-        logger.debug("Running query on {}", localhost);
+    public Set<Instance> runOnceOn(Optional<InetAddress> localhost) throws IOException {
+        logger.debug("Running query on {}", localhost.isPresent() ? localhost.get() : "any interface");
         initialQuestion = new Question(service, domain);
         instances = Collections.synchronizedSet(new HashSet<>());
         try {
             Thread listener = null;
-            if (localhost != TEST_SUITE_ADDRESS) {
+            if (!localhost.isPresent() || (localhost.isPresent() && localhost.get() != TEST_SUITE_ADDRESS)) {
                 openSocket(localhost);
                 listener = listenForResponses();
                 while (!isServerIsListening()) {
@@ -193,11 +193,13 @@ public class Query {
         throw new RuntimeException("Not implemented yet");
     }
 
-    private void openSocket(InetAddress localhost) throws IOException {
+    private void openSocket(Optional<InetAddress> localhost) throws IOException {
         mdnsGroupIPv4 = InetAddress.getByName(MDNS_IP4_ADDRESS);
         mdnsGroupIPv6 = InetAddress.getByName(MDNS_IP6_ADDRESS);
         socket = new MulticastSocket(MDNS_PORT);
-        socket.setInterface(localhost);
+        if (localhost.isPresent()) {
+            socket.setInterface(localhost.get());
+        }
         try {
             socket.joinGroup(mdnsGroupIPv4);
             isUsingIPv4 = true;
