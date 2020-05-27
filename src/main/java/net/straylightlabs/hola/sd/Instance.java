@@ -116,6 +116,14 @@ public class Instance {
     public int getPort() {
         return port;
     }
+    
+    /**
+     * Get available attributes names
+      * @return set of available attributes names
+     */
+    public Set<String> getAttributesNames() {
+        return attributes.keySet();
+    }
 
     /**
      * Check whether this instance has the specified attribute.
